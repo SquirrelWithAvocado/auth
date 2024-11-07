@@ -116,6 +116,7 @@ namespace PhotosApp.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize("MustOwnPhoto")]
         [Authorize(Policy = "Beta")]
         public async Task<IActionResult> EditPhoto(EditPhotoModel editPhotoModel)
         {
