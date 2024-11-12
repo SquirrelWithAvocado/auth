@@ -60,7 +60,7 @@ namespace PhotosApp.Controllers
             return File(photoContent.Content, photoContent.ContentType, photoContent.FileName);
         }
 
-
+        [Route("Photos/AddPhoto")]
         [Authorize(Policy = "CanAddPhoto")]
         public IActionResult AddPhoto()
         {
@@ -68,6 +68,7 @@ namespace PhotosApp.Controllers
         }
 
         [HttpPost]
+        [Route("Photos/AddPhoto")]
         [ValidateAntiForgeryToken]
         [Authorize(Policy = "CanAddPhoto")]
         public async Task<IActionResult> AddPhoto(AddPhotoModel addPhotoModel)
