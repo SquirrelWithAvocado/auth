@@ -70,13 +70,13 @@ namespace PhotosApp.Areas.Identity
 
                 services.AddScoped<IAuthorizationHandler, MustOwnPhotoHandler>();
                 
-                services.AddAuthentication()
-                    .AddGoogle("Google", options =>
-                        {
-                            options.ClientId = context.Configuration["Authentication:Google:ClientId"];
-                            options.ClientSecret = context.Configuration["Authentication:Google:ClientSecret"];
-                        }
-                    );
+                // services.AddAuthentication()
+                //     .AddGoogle("Google", options =>
+                //         {
+                //             options.ClientId = context.Configuration["Authentication:Google:ClientId"];
+                //             options.ClientSecret = context.Configuration["Authentication:Google:ClientSecret"];
+                //         }
+                //     );
 
                 services.AddAuthentication()
                     .AddJwtBearer(options =>
