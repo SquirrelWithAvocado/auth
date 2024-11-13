@@ -1,6 +1,8 @@
-﻿using System.Threading.Tasks;
+﻿using System.IdentityModel.Tokens.Jwt;
+using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
@@ -10,6 +12,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.IdentityModel.Protocols;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using Microsoft.IdentityModel.Tokens;
 using PhotosApp.Areas.Identity.Data;
 using PhotosApp.Clients;
 using PhotosApp.Clients.Models;
@@ -53,8 +58,8 @@ namespace PhotosApp
             //services.AddDbContext<PhotosDbContext>(o =>
             //    o.UseSqlServer(@"Server=(localdb)\mssqllocaldb;Database=PhotosApp;Trusted_Connection=True;"));
 
-            services.AddScoped<IPhotosRepository, LocalPhotosRepository>();
-            // services.AddScoped<IPhotosRepository, RemotePhotosRepository>();
+            // services.AddScoped<IPhotosRepository, LocalPhotosRepository>();
+            services.AddScoped<IPhotosRepository, RemotePhotosRepository>();
 
             services.AddAutoMapper(cfg =>
             {
@@ -109,11 +114,19 @@ namespace PhotosApp
 
             services.AddScoped<IPasswordHasher<PhotosAppUser>, SimplePasswordHasher<PhotosAppUser>>();
 
+            const string oidcAuthority = "https://localhost:7001";
+            var oidcConfigurationManager = new ConfigurationManager<OpenIdConnectConfiguration>(
+                $"{oidcAuthority}/.well-known/openid-configuration",
+                new OpenIdConnectConfigurationRetriever(),
+                new HttpDocumentRetriever());
+            services.AddSingleton<IConfigurationManager<OpenIdConnectConfiguration>>(oidcConfigurationManager);
+
             services.AddAuthentication()
                 .AddOpenIdConnect("Passport", "Паспорт", options =>
                     {
                         options.SaveTokens = true;
-                        options.Authority = "https://localhost:7001";
+                        options.ConfigurationManager = oidcConfigurationManager;
+                        options.Authority = oidcAuthority;
 
                         options.ClientId = "Photos App by OIDC";
                         options.ClientSecret = "secret";
@@ -122,6 +135,8 @@ namespace PhotosApp
                         // NOTE: oidc и profile уже добавлены по умолчанию
                         options.Scope.Add("email");
                         options.Scope.Add("photos_app");
+                        options.Scope.Add("photos");
+                        options.Scope.Add("offline_access");
 
                         options.CallbackPath = "/signin-passport";
                         options.SignedOutCallbackPath = "/signout-callback-passport";
@@ -134,6 +149,32 @@ namespace PhotosApp
 
                         options.Events = new OpenIdConnectEvents
                         {
+                            OnTokenResponseReceived = context =>
+                            {
+                                var tokenResponse = context.TokenEndpointResponse;
+                                var tokenHandler = new JwtSecurityTokenHandler();
+
+                                SecurityToken accessToken = null;
+                                if (tokenResponse.AccessToken != null)
+                                {
+                                    accessToken = tokenHandler.ReadToken(tokenResponse.AccessToken);
+                                }
+
+                                SecurityToken idToken = null;
+                                if (tokenResponse.IdToken != null)
+                                {
+                                    idToken = tokenHandler.ReadToken(tokenResponse.IdToken);
+                                }
+
+                                string refreshToken = null;
+                                if (tokenResponse.RefreshToken != null)
+                                {
+                                    // NOTE: Это не JWT-токен
+                                    refreshToken = tokenResponse.RefreshToken;
+                                }
+
+                                return Task.CompletedTask;
+                            },
                             OnRemoteFailure = context => 
                             {
                                 context.Response.Redirect("/");

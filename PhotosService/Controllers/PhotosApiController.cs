@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
@@ -27,19 +28,22 @@ namespace PhotosService.Controllers
         [HttpGet]
         public async Task<IActionResult> GetPhotos(string ownerId)
         {
+
             var photoEntities = (await photosRepository.GetPhotosAsync(ownerId)).ToList();
             var photos = mapper.Map<List<PhotoDto>>(photoEntities);
-            foreach(var photo in photos)
+            foreach (var photo in photos)
                 photo.Url = GeneratePhotoUrl(photo);
             return Ok(photos.ToList());
         }
 
         [HttpGet("{id}/meta")]
-        public async Task<IActionResult> GetPhotoMeta(Guid id)
+        public async Task<IActionResult> GetPhotoMeta(Guid id, [FromHeader] JwtSecurityToken accessToken)
         {
             var photoEntity = await photosRepository.GetPhotoMetaAsync(id);
             if (photoEntity == null)
                 return NotFound();
+            if (accessToken.Subject != photoEntity.OwnerId)
+                return Forbid();
 
             var photo = mapper.Map<PhotoDto>(photoEntity);
             photo.Url = GeneratePhotoUrl(photo);
@@ -47,8 +51,14 @@ namespace PhotosService.Controllers
         }
 
         [HttpGet("{id}/content")]
-        public async Task<IActionResult> GetPhotoContent(Guid id)
+        public async Task<IActionResult> GetPhotoContent(Guid id, [FromHeader] JwtSecurityToken accessToken)
         {
+            var photoEntity = await photosRepository.GetPhotoMetaAsync(id);
+            if (photoEntity == null)
+                return NotFound();
+            if (accessToken.Subject != photoEntity.OwnerId)
+                return Forbid();
+
             var photoContent = await photosRepository.GetPhotoContentAsync(id);
             if (photoContent == null)
                 return NotFound();
@@ -67,11 +77,13 @@ namespace PhotosService.Controllers
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdatePhoto(Guid id, PhotoToUpdateDto photo)
+        public async Task<IActionResult> UpdatePhoto(Guid id, PhotoToUpdateDto photo, [FromHeader] JwtSecurityToken accessToken)
         {
             var photoEntity = await photosRepository.GetPhotoMetaAsync(id);
             if (photoEntity == null)
                 return NotFound();
+            if (accessToken.Subject != photoEntity.OwnerId)
+                return Forbid();
 
             photoEntity.Title = photo.Title;
             var result = await photosRepository.UpdatePhotoAsync(photoEntity);
@@ -81,11 +93,13 @@ namespace PhotosService.Controllers
         }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeletePhoto(Guid id)
+        public async Task<IActionResult> DeletePhoto(Guid id, [FromHeader] JwtSecurityToken accessToken)
         {
             var photoEntity = await photosRepository.GetPhotoMetaAsync(id);
             if (photoEntity == null)
                 return NotFound();
+            if (accessToken.Subject != photoEntity.OwnerId)
+                return Forbid();
 
             var result = await photosRepository.DeletePhotoAsync(photoEntity);
             if (!result)
@@ -95,7 +109,8 @@ namespace PhotosService.Controllers
 
         private string GeneratePhotoUrl(PhotoDto photo)
         {
-            var relativeUrl = Url.Action(nameof(GetPhotoContent), new {
+            var relativeUrl = Url.Action(nameof(GetPhotoContent), new
+            {
                 id = photo.Id
             });
             var url = "https://localhost:6001" + relativeUrl;

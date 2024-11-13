@@ -12,7 +12,7 @@ namespace IdentityServer
     {
         public static IEnumerable<IdentityResource> Ids =>
             new IdentityResource[]
-            { 
+            {
                 new IdentityResources.OpenId(),
                 new IdentityResources.Profile(),
                 new IdentityResources.Email(),
@@ -23,11 +23,12 @@ namespace IdentityServer
             };
 
         public static IEnumerable<ApiResource> Apis =>
-            new ApiResource[] 
+            new ApiResource[]
             {
                 new ApiResource("photos_service", "Сервис фотографий")
                 {
-                    Scopes = { "photos" }
+                    Scopes = { "photos" },
+                    ApiSecrets = { new Secret("photos_service_secret".Sha256()) }
                 }
             };
 
@@ -36,9 +37,9 @@ namespace IdentityServer
             {
                 new ApiScope("photos", "Фотографии")
             };
-        
+
         public static IEnumerable<Client> Clients =>
-            new Client[] 
+            new Client[]
             {
                 new Client
                 {
@@ -59,7 +60,7 @@ namespace IdentityServer
                     AllowedGrantTypes = GrantTypes.Code,
                     
                     // NOTE: показывать ли пользователю страницу consent со списком запрошенных разрешений
-                    RequireConsent = false,
+                    RequireConsent = true,
 
                     // NOTE: куда отправлять после логина
                     RedirectUris = { "https://localhost:5001/signin-passport" },
@@ -73,7 +74,11 @@ namespace IdentityServer
                         // NOTE: Позволяет запрашивать email пользователя через id token
                         IdentityServerConstants.StandardScopes.Email,
                         "photos_app",
+                        "photos"
                     },
+
+                    AccessTokenLifetime = 30,
+                    AllowOfflineAccess = true,
 
                     // NOTE: Надо ли добавлять информацию о пользователе в id token при запросе одновременно
                     // id token и access token, как это происходит в code flow.
